@@ -406,6 +406,6 @@ def main():
     home.engine()  
 
         
-ui.run(port=3333, endpoint_documentation='internal')
+ui.run(port=3333, endpoint_documentation='internal', title='Query Builder', favicon='🛠️')
     
     
