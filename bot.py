@@ -95,6 +95,7 @@ def get_property_id(payload: dict):
     return propert_ids, search_metadata
 
 async def get_property_details(p_ids):
+    db.properties = []
     limit = math.ceil(len(p_ids)/10)
     if limit == 0:
         return []
