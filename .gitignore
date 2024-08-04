@@ -1,0 +1,9 @@
+test.db
+test.ipynb
+test.py
+test.csv
+pyproject.toml
+poetry.lock
+config.py
+*.venv
+__pycache__
