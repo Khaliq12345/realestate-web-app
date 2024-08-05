@@ -24,7 +24,7 @@ class Home:
         self.county = None
         self.zip = None
         self.payload = {}
-        self.search_metadata = {}
+        self.search_metadata = {"info": "Please run query 1 before you can see last query info"}
         self.property_ids = []
         self.original_property_ids = []
         self.eng = create_engine(config.db_url)
@@ -35,22 +35,33 @@ class Home:
     
     #Long running tasks-----------------
     async def query2_runner(self):
-        if self.remove_all == 'Remove all':
-            q = f"SELECT p_id FROM {config.db_name} WHERE p_id IN {tuple(self.original_property_ids)}"
-            df_gen = self.query_data_from_df(q, ['p_id'])
-            dup_list = df_gen['p_id'].to_list()
-            self.property_ids = [p for p in self.property_ids if p not in dup_list]
-            self.output_df = await bot.get_property_details(self.property_ids)
-        elif self.remove_all == 'Update all':
-            self.output_df = await bot.get_property_details(self.original_property_ids)
-        else:
-            self.output_df = await bot.get_property_details(self.property_ids)
-        if len(self.output_df) > 0:
-            self.download_btn.enable()
-        else:
+        try:
+            if self.remove_all == 'Remove all':
+                q = f"SELECT p_id FROM {config.db_name} WHERE p_id IN {tuple(self.original_property_ids)}"
+                df_gen = self.query_data_from_df(q, ['p_id'])
+                dup_list = df_gen['p_id'].to_list()
+                self.property_ids = [p for p in self.property_ids if p not in dup_list]
+                self.output_df = await bot.get_property_details(self.property_ids)
+            elif self.remove_all == 'Update all':
+                self.output_df = await bot.get_property_details(self.original_property_ids)
+            else:
+                self.output_df = await bot.get_property_details(self.property_ids)
+            if len(self.output_df) > 0:
+                self.download_btn.enable()
+            else:
+                with self.page_col:
+                    ui.notification(
+                    "No data extracted", close_button=True, timeout=10, position='top')
+        except Exception as e:
             with self.page_col:
-                ui.notification("No data extracted", type='info', close_button=True)
-        self.spinner.visible = False
+                ui.notification(
+                    f""" Error: {e}""",
+                    position='top',
+                    multi_line=True,
+                    close_button=True, timeout=10, type='negative'
+                )
+        finally:
+            self.spinner.visible = False
         
     def before_query2(self):
         loop = asyncio.new_event_loop()
@@ -97,8 +108,17 @@ class Home:
             if q:
                 df_gen = pd.read_sql_query(q, con, chunksize=5)
                 self.dfs = list(df_gen)
-                self.total_data = len(self.dfs)
-                self.show_data(self.dfs[self.page_num])
+                if not self.dfs[0].empty:
+                    self.total_data = len(self.dfs)
+                    self.show_data(self.dfs[self.page_num])
+                else:
+                    with self.duplicate_ui:
+                        self.total_data = 1
+                        ui.label("""
+                        No duplicates found, you can proceed with query 2.
+                        You can use the (SHOW LAST QUERY BUTTON) to view inspect the query info""")\
+                        .classes('w-full text-pretty text-center')
+                        self.show_duplicate_buttons()
             else:
                 with self.page_col:
                     ui.notification("No property for this query", type='info', close_button=True)
@@ -111,15 +131,30 @@ class Home:
             self.show_data(pd.DataFrame())
         
     def runner(self):
-        self.property_ids, self.search_metadata = bot.get_property_id(self.payload)
-        #self.property_ids = [33951715, 25638409, 44804953]
-        self.property_ids = [str(p) for p in self.property_ids]
-        self.original_property_ids = self.property_ids.copy()
-        self.loc_ui.value = False
-        self.prop_ui.value = False
-        self.query2_ui.visible = True
-        self.filter_based_on_db()
-        with self.page_col:
+        try:
+            self.property_ids, self.search_metadata, error = bot.get_property_id(self.payload)
+            if not error:
+                #self.property_ids = [33951715, 25638409, 44804953]
+                self.property_ids = [str(p) for p in self.property_ids]
+                self.original_property_ids = self.property_ids.copy()
+                self.loc_ui.value = False
+                self.prop_ui.value = False
+                self.query2_ui.visible = True
+                self.filter_based_on_db()
+            else:
+                self.search_metadata = self.payload.copy()
+                with self.page_col:
+                    ui.notification(f"Error while running the query: {error}", 
+                    multi_line=True, position='top', timeout=10, close_button=True)
+        except Exception as e:
+            self.search_metadata = self.payload.copy()
+            with self.page_col:
+                ui.notification(
+                    f""" Error: {e}""",
+                    position='top', timeout=10,
+                    close_button=True, type='negative'
+                )
+        finally:
             self.spinner.visible = False
     
     def select_handler(self, value: bool, name: str):
@@ -144,7 +179,7 @@ class Home:
         name = f"{name.replace(' ', '_').lower()}"
         if name == 'zip':
             value: list[str] = value.split(',')
-            value = [v for v in value if not (v.isspace() or (v == ''))]
+            value = [v.strip() for v in value if not (v.isspace() or (v == ''))]
         else:
             value = int(value) if type(value) == float else value
         self.payload[name] = value
@@ -154,22 +189,14 @@ class Home:
             del self.payload[name]
             
     def start_query1(self):
-        try:
-            self.spinner.visible = True
-            self.payload['count'] = True
-            self.payload['summary'] = True
-            self.payload['ids_only'] = True
-            print(self.payload)
-            task = Thread(target=self.runner)
-            task.start()
-        except Exception as e:
-            ui.notification(
-                f""" Error: {e}""",
-                position='top',
-                close_button=True
-            )
-            self.spinner.visible = False
-            
+        self.spinner.visible = True
+        self.duplicate_ui.clear()
+        self.payload['count'] = True
+        self.payload['summary'] = True
+        self.payload['ids_only'] = True
+        task = Thread(target=self.runner)
+        task.start()
+                   
     def handle_download(self):
         buffer = BytesIO()
         writer = pd.ExcelWriter(buffer, engine='openpyxl')
@@ -223,6 +250,7 @@ class Home:
             df['checked'] = False
         self.duplicate_ui.clear()
         with self.duplicate_ui:
+            ui.label(duplicate_message).classes('p-2 text-pretty text-center')
             for idx, row in df.iterrows():
                 with ui.row()\
                     .classes('w-full grid lg:grid-cols-8 divide-y grid-cols-5'):
@@ -233,8 +261,7 @@ class Home:
                         )
                     self.large_screen_show_data(row)
                     self.small_screen_show_data(row)
-
-        self.show_duplicate_buttons()
+            self.show_duplicate_buttons()
                 
     def query_dialog(self):
         self.q_dialog.clear()

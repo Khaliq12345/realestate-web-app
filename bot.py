@@ -81,6 +81,7 @@ async def get_prop_data(p_id: str):
 def get_property_id(payload: dict):
     propert_ids = []
     search_metadata = {}
+    error = None
     url = "https://api.realestateapi.com/v2/PropertySearch"
     with httpx.Client(headers=headers, timeout=None) as client:
         response = client.post(url, json=payload)
@@ -91,8 +92,8 @@ def get_property_id(payload: dict):
             search_metadata['record_count'] = response.json().get('recordCount')
             search_metadata['credits'] = response.json().get('credits')
         else:
-            print(response.text)
-    return propert_ids, search_metadata
+            error = response.text
+    return propert_ids, search_metadata, error
 
 async def get_property_details(p_ids):
     db.properties = []

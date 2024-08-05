@@ -74,3 +74,9 @@ to_show_cols = [
     {"field":"pre_foreclosure", "name": "Pre Forclosure"},
     {"field":"vacant", "name": "Vacant"},
     {"field":"owner_occupied", 'name': "Owner Occupied"}]
+
+
+duplicate_message = """The following are duplicates properties (properties already in the database). 
+                Select the property you want to remove,
+                any property not selected will be updated automatically. If you wish to update or remove all duplicates,
+                you can choose the (REMOVE ALL) or (UPDATE ALL) button below."""
