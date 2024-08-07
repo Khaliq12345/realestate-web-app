@@ -7,7 +7,7 @@ search_range_options = [
 ]
 
 property_types = [
-    'SRF',
+    'SFR',
     'MFR',
     'LAND',
     'CONDO',
@@ -16,8 +16,8 @@ property_types = [
 ]
 
 mls_statuses = [
-    'ml_active',
-    'ml_pending',
+    'mls_active',
+    'mls_pending',
     'mls_cancelled'
 ]
 

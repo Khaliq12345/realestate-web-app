@@ -131,6 +131,7 @@ class Home:
             self.show_data(pd.DataFrame())
         
     def runner(self):
+        print(self.payload)
         try:
             self.property_ids, self.search_metadata, error = bot.get_property_id(self.payload)
             if not error:
@@ -158,10 +159,7 @@ class Home:
             self.spinner.visible = False
     
     def select_handler(self, value: bool, name: str):
-        if name.isupper():
-            pass
-        else:
-            name = name.replace(' ', '_').lower()
+        name = name.replace(' ', '_').lower()
         self.payload[name] = value
         if value:
             match value:
@@ -173,7 +171,10 @@ class Home:
                     self.payload[name] = None
         else:
             del self.payload[name]
-        print(self.payload)
+    
+    def toggle_handler(self, value: str):
+        if value:
+            self.payload['property_type'] = value
     
     def input_handler(self, value: float|str|None, name: str):
         name = f"{name.replace(' ', '_').lower()}"
@@ -209,6 +210,19 @@ class Home:
         )
         
     #Frontend-----------------------------
+    
+    def property_toggler(self):
+        with ui.column(align_items='center')\
+            .classes(f'w-full p-3 border-4 overflow-auto max-h-80 max-2xl:hidden col-span-2'):
+                ui.toggle(property_types, clearable=True).on_value_change(
+                    lambda e: self.toggle_handler(e.value)
+                ).classes('flex flex-col w-full justify-center')
+                
+        with ui.column(align_items='start').classes('w-full p-3 border-4 2xl:hidden'):
+            with ui.expansion("PROPERTY TYPES").classes('w-full bg-accent').props('header-class="text-bold"'):
+                ui.toggle(property_types, clearable=True).on_value_change(
+                    lambda e: self.toggle_handler(e.value)
+                ).classes('flex flex-col w-full justify-center')
     
     def small_screen_show_data(self, row):
         for col in to_show_cols[:2]:
@@ -385,7 +399,8 @@ class Home:
                 .props('header-class="bg-primary text-black text-bold text-base md:text-xl"') as self.prop_ui:
                 with ui.row()\
                 .classes('grid grid-cols-10 max-2xl:grid-cols-1 gap-1 w-full') as self.pp_col:
-                    self.select_box_ui('PROPERTY TYPES', property_types, 2)
+                    #self.select_box_ui('PROPERTY TYPES', property_types, 2)
+                    self.property_toggler()
                     self.select_box_ui("MLS", mls_statuses, 2)
                     self.select_box_ui("Other Filters", filters_part_1, 2)
                     self.min_max_ui()
